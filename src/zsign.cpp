@@ -271,18 +271,28 @@ int main(int argc, char* argv[])
 	bool bTempFolder = false;
 	bool bEnableCache = true;
 	string strFolder = strPath;
-	if (bZipFile) {
-		bForce = true;
-		bTempFolder = true;
-		bEnableCache = false;
-		strFolder = ZFile::GetRealPathV("%s/zsign_folder_%llu", strTempFolder.c_str(), atimer.Reset());
-		ZLog::PrintV(">>> Unzip:\t%s (%s) -> %s ... \n", strPath.c_str(), ZFile::GetFileSizeString(strPath.c_str()).c_str(), strFolder.c_str());
-		if (!Zip::Extract(strPath.c_str(), strFolder.c_str())) {
-			ZLog::ErrorV(">>> Unzip failed!\n");
-			return -1;
-		}
-		atimer.PrintResult(true, ">>> Unzip OK!");
-	}
+	// ... (الكود السابق كما هو دون تغيير حتى الوصول لنقطة فك الضغط)
+
+if (bZipFile) {
+    bForce = true;
+    bTempFolder = true;
+    bEnableCache = false;
+    strFolder = ZFile::GetRealPathV("%s/zsign_folder_%llu", strTempFolder.c_str(), atimer.Reset());
+    ZLog::PrintV(">>> Unzip:\t%s (%s) -> %s ... \n", strPath.c_str(), ZFile::GetFileSizeString(strPath.c_str()).c_str(), strFolder.c_str());
+
+    // استدعاء أمر unzip بدل Zip::Extract
+    string cmd = "unzip -o \"" + strPath + "\" -d \"" + strFolder + "\"";
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+        ZLog::ErrorV(">>> Unzip failed with system command!\n");
+        return -1;
+    }
+
+    atimer.PrintResult(true, ">>> Unzip OK!");
+}
+
+// ... (الكود التالي كما هو)
+
 
 	//sign
 	atimer.Reset();
