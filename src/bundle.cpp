@@ -494,107 +494,123 @@ bool ZBundle::ModifyBundleInfo(const string& strBundleId, const string& strBundl
 }
 
 bool ZBundle::SignFolder(ZSignAsset* pSignAsset,
-							const string& strFolder,
-							const string& strBundleId,
-							const string& strBundleVersion,
-							const string& strDisplayName,
-							const vector<string>& arrInjectDylibs,
-							bool bForce,
-							bool bWeakInject,
-							bool bEnableCache,
-							bool excludeProvisioning)  // تمت إضافة البارامتر الجديد
+                        const string& strFolder,
+                        const string& strBundleId,
+                        const string& strBundleVersion,
+                        const string& strDisplayName,
+                        const vector<string>& arrInjectDylibs,
+                        bool bForce,
+                        bool bWeakInject,
+                        bool bEnableCache,
+                        bool excludeProvisioning,
+                        bool bInjectToFrameworks)  // ✅ تمت إضافة البارامتر
 {
-	m_bForceSign = bForce;
-	m_pSignAsset = pSignAsset;
-	m_bWeakInject = bWeakInject;
-	if (NULL == m_pSignAsset) {
-		return false;
-	}
+    m_bForceSign = bForce;
+    m_pSignAsset = pSignAsset;
+    m_bWeakInject = bWeakInject;
+    if (NULL == m_pSignAsset) {
+        return false;
+    }
 
-	if (!FindAppFolder(strFolder, m_strAppFolder)) {
-		ZLog::ErrorV(">>> Can't find app folder! %s\n", strFolder.c_str());
-		return false;
-	}
+    if (!FindAppFolder(strFolder, m_strAppFolder)) {
+        ZLog::ErrorV(">>> Can't find app folder! %s\n", strFolder.c_str());
+        return false;
+    }
 
-	if (!strBundleId.empty() || !strDisplayName.empty() || !strBundleVersion.empty()) {
-		m_bForceSign = true;
-		if (!ModifyBundleInfo(strBundleId, strBundleVersion, strDisplayName)) {
-			return false;
-		}
-	}
+    if (!strBundleId.empty() || !strDisplayName.empty() || !strBundleVersion.empty()) {
+        m_bForceSign = true;
+        if (!ModifyBundleInfo(strBundleId, strBundleVersion, strDisplayName)) {
+            return false;
+        }
+    }
 
-	// ✅ دعم bExcludeProvisioning
-	if (!excludeProvisioning) {
-		ZFile::RemoveFileV("%s/embedded.mobileprovision", m_strAppFolder.c_str());
-		if (!pSignAsset->m_strProvData.empty()) {
-			if (!ZFile::WriteFileV(pSignAsset->m_strProvData, "%s/embedded.mobileprovision", m_strAppFolder.c_str())) {
-				ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
-				return false;
-			}
-		}
-	} else {
-		string strProvisionPath = ZFile::GetRealPathV("%s/embedded.mobileprovision", m_strAppFolder.c_str());
-		if (ZFile::IsFileExists(strProvisionPath.c_str())) {
-			ZFile::RemoveFile(strProvisionPath.c_str());
-			ZLog::PrintV(">>> Removed existing embedded.mobileprovision\n");
-		}
-		ZLog::PrintV(">>> Skipped writing embedded.mobileprovision (excludeProvisioning is true)\n");
-	}
+    // ✅ دعم excludeProvisioning
+    if (!excludeProvisioning) {
+        ZFile::RemoveFileV("%s/embedded.mobileprovision", m_strAppFolder.c_str());
+        if (!pSignAsset->m_strProvData.empty()) {
+            if (!ZFile::WriteFileV(pSignAsset->m_strProvData, "%s/embedded.mobileprovision", m_strAppFolder.c_str())) {
+                ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
+                return false;
+            }
+        }
+    } else {
+        string strProvisionPath = ZFile::GetRealPathV("%s/embedded.mobileprovision", m_strAppFolder.c_str());
+        if (ZFile::IsFileExists(strProvisionPath.c_str())) {
+            ZFile::RemoveFile(strProvisionPath.c_str());
+            ZLog::PrintV(">>> Removed existing embedded.mobileprovision\n");
+        }
+        ZLog::PrintV(">>> Skipped writing embedded.mobileprovision (excludeProvisioning is true)\n");
+    }
 
-	if (!arrInjectDylibs.empty()) {
-		m_bForceSign = true;
-		for (const string& strDylibFile : arrInjectDylibs) {
-			string strFileName = ZUtil::GetBaseName(strDylibFile.c_str());
-			if (ZFile::CopyFileV(strDylibFile.c_str(), "%s/%s", m_strAppFolder.c_str(), strFileName.c_str())) {
-				m_arrInjectDylibs.push_back("@executable_path/" + strFileName);
-			}
-		}
-	}
+    // ✅ قسم حقن المكتبات الديناميكية مع دعم Frameworks
+    if (!arrInjectDylibs.empty()) {
+        m_bForceSign = true;
+        for (const string& strDylibFile : arrInjectDylibs) {
+            string strFileName = ZUtil::GetBaseName(strDylibFile.c_str());
+            string strTargetPath;
+            string strDylibInstallPath;
 
-	string strCacheName;
-	ZSHA::SHA1Text(m_strAppFolder, strCacheName);
-	if (!ZFile::IsFileExistsV("./.zsign_cache/%s.json", strCacheName.c_str())) {
-		m_bForceSign = true;
-	}
+            if (bInjectToFrameworks) {
+                string strFrameworksPath = ZFile::GetRealPathV("%s/Frameworks", m_strAppFolder.c_str());
+                ZFile::CreateFolder(strFrameworksPath.c_str());
+                strTargetPath = ZFile::GetRealPathV("%s/%s", strFrameworksPath.c_str(), strFileName.c_str());
+                strDylibInstallPath = "@executable_path/Frameworks/" + strFileName;
+            } else {
+                strTargetPath = ZFile::GetRealPathV("%s/%s", m_strAppFolder.c_str(), strFileName.c_str());
+                strDylibInstallPath = "@executable_path/" + strFileName;
+            }
 
-	jvalue jvRoot;
-	if (m_bForceSign) {
-		jvRoot["path"] = "/";
-		jvRoot["root"] = m_strAppFolder;
-		if (!GetSignFolderInfo(m_strAppFolder, jvRoot, true)) {
-			ZLog::ErrorV(">>> Can't get BundleID, BundleVersion, or BundleExecute in Info.plist! %s\n", m_strAppFolder.c_str());
-			return false;
-		}
-		if (!GetObjectsToSign(m_strAppFolder, jvRoot)) {
-			return false;
-		}
-		GetNodeChangedFiles(jvRoot);
-	} else {
-		jvRoot.read_from_file("./.zsign_cache/%s.json", strCacheName.c_str());
-	}
+            if (ZFile::CopyFile(strDylibFile.c_str(), strTargetPath.c_str())) {
+                m_arrInjectDylibs.push_back(strDylibInstallPath);
+                ZLog::PrintV(">>> Dylib Copied To: %s\n", strTargetPath.c_str());
+            }
+        }
+    }
 
-	string strAppName = jvRoot["name"];
+    string strCacheName;
+    ZSHA::SHA1Text(m_strAppFolder, strCacheName);
+    if (!ZFile::IsFileExistsV("./.zsign_cache/%s.json", strCacheName.c_str())) {
+        m_bForceSign = true;
+    }
+
+    jvalue jvRoot;
+    if (m_bForceSign) {
+        jvRoot["path"] = "/";
+        jvRoot["root"] = m_strAppFolder;
+        if (!GetSignFolderInfo(m_strAppFolder, jvRoot, true)) {
+            ZLog::ErrorV(">>> Can't get BundleID, BundleVersion, or BundleExecute in Info.plist! %s\n", m_strAppFolder.c_str());
+            return false;
+        }
+        if (!GetObjectsToSign(m_strAppFolder, jvRoot)) {
+            return false;
+        }
+        GetNodeChangedFiles(jvRoot);
+    } else {
+        jvRoot.read_from_file("./.zsign_cache/%s.json", strCacheName.c_str());
+    }
+
+    string strAppName = jvRoot["name"];
 
 #ifdef _WIN32
-	iconv ic;
-	strAppName = ic.U82A(strAppName);
+    iconv ic;
+    strAppName = ic.U82A(strAppName);
 #endif
 
-	ZLog::PrintV(">>> Signing: \t%s ...\n", m_strAppFolder.c_str());
-	ZLog::PrintV(">>> AppName: \t%s\n", strAppName.c_str());
-	ZLog::PrintV(">>> BundleId: \t%s\n", jvRoot["bundle_id"].as_cstr());
-	ZLog::PrintV(">>> Version: \t%s\n", jvRoot["bundle_version"].as_cstr());
-	ZLog::PrintV(">>> TeamId: \t%s\n", m_pSignAsset->m_strTeamId.c_str());
-	ZLog::PrintV(">>> SubjectCN: \t%s\n", m_pSignAsset->m_strSubjectCN.c_str());
-	ZLog::PrintV(">>> ReadCache: \t%s\n", m_bForceSign ? "NO" : "YES");
+    ZLog::PrintV(">>> Signing: \t%s ...\n", m_strAppFolder.c_str());
+    ZLog::PrintV(">>> AppName: \t%s\n", strAppName.c_str());
+    ZLog::PrintV(">>> BundleId: \t%s\n", jvRoot["bundle_id"].as_cstr());
+    ZLog::PrintV(">>> Version: \t%s\n", jvRoot["bundle_version"].as_cstr());
+    ZLog::PrintV(">>> TeamId: \t%s\n", m_pSignAsset->m_strTeamId.c_str());
+    ZLog::PrintV(">>> SubjectCN: \t%s\n", m_pSignAsset->m_strSubjectCN.c_str());
+    ZLog::PrintV(">>> ReadCache: \t%s\n", m_bForceSign ? "NO" : "YES");
 
-	if (SignNode(jvRoot)) {
-		if (bEnableCache) {
-			ZFile::CreateFolder("./.zsign_cache");
-			jvRoot.style_write_to_file("./.zsign_cache/%s.json", strCacheName.c_str());
-		}
-		return true;
-	}
+    if (SignNode(jvRoot)) {
+        if (bEnableCache) {
+            ZFile::CreateFolder("./.zsign_cache");
+            jvRoot.style_write_to_file("./.zsign_cache/%s.json", strCacheName.c_str());
+        }
+        return true;
+    }
 
-	return false;
+    return false;
 }
