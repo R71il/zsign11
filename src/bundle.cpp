@@ -501,7 +501,8 @@ bool ZBundle::SignFolder(ZSignAsset* pSignAsset,
 							const vector<string>& arrInjectDylibs,
 							bool bForce,
 							bool bWeakInject,
-							bool bEnableCache)
+							bool bEnableCache,
+							bool excludeProvisioning)  // تمت إضافة البارامتر الجديد
 {
 	m_bForceSign = bForce;
 	m_pSignAsset = pSignAsset;
@@ -522,12 +523,22 @@ bool ZBundle::SignFolder(ZSignAsset* pSignAsset,
 		}
 	}
 
-	ZFile::RemoveFileV("%s/embedded.mobileprovision", m_strAppFolder.c_str());
-	if (!pSignAsset->m_strProvData.empty()) {
-		if (!ZFile::WriteFileV(pSignAsset->m_strProvData, "%s/embedded.mobileprovision", m_strAppFolder.c_str())) { // embedded.mobileprovision
-			ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
-			return false;
+	// ✅ دعم bExcludeProvisioning
+	if (!excludeProvisioning) {
+		ZFile::RemoveFileV("%s/embedded.mobileprovision", m_strAppFolder.c_str());
+		if (!pSignAsset->m_strProvData.empty()) {
+			if (!ZFile::WriteFileV(pSignAsset->m_strProvData, "%s/embedded.mobileprovision", m_strAppFolder.c_str())) {
+				ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
+				return false;
+			}
 		}
+	} else {
+		string strProvisionPath = ZFile::GetRealPathV("%s/embedded.mobileprovision", m_strAppFolder.c_str());
+		if (ZFile::IsFileExists(strProvisionPath.c_str())) {
+			ZFile::RemoveFile(strProvisionPath.c_str());
+			ZLog::PrintV(">>> Removed existing embedded.mobileprovision\n");
+		}
+		ZLog::PrintV(">>> Skipped writing embedded.mobileprovision (excludeProvisioning is true)\n");
 	}
 
 	if (!arrInjectDylibs.empty()) {
