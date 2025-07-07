@@ -35,6 +35,7 @@ const struct option options[] = {
 	{"quiet", no_argument, NULL, 'q'},
 	{"help", no_argument, NULL, 'h'},
         {"deletemp", no_argument, NULL, 'x'},
+        {"frameworks", no_argument, NULL, 'y'},
 	{}
 };
 
@@ -64,6 +65,7 @@ int usage()
 	ZLog::Print("-C, --check\t\tCheck if the file is signed.\n");
 	ZLog::Print("-q, --quiet\t\tQuiet operation.\n");
 	ZLog::Print("-v, --version\t\tShows version.\n");
+	ZLog::Print("-y, --frameworks\tInject dylib into Frameworks folder.\n"); 
 	ZLog::Print("-h, --help\t\tShows help (this message).\n");
 
 	return -1;
@@ -81,6 +83,7 @@ int main(int argc, char* argv[])
 	bool bSHA256Only = false;
 	bool bCheckSignature = false;
 	bool bExcludeProvisioning = false;
+	bool bInjectToFrameworks = false;
 	uint32_t uZipLevel = 0;
 
 	string strCertFile;
@@ -97,7 +100,7 @@ int main(int argc, char* argv[])
 
 	int opt = 0;
 	int argslot = -1;
-	while (-1 != (opt = getopt_long(argc, argv, "dfva2hiqwCc:k:m:o:p:e:b:n:z:l:t:r:x",
+	while (-1 != (opt = getopt_long(argc, argv, "dfva2hiqwCyc:k:m:o:p:e:b:n:z:l:t:r:x",
 		options, &argslot))) {
 		switch (opt) {
 		case 'd':
@@ -161,9 +164,9 @@ int main(int argc, char* argv[])
 			ZLog::SetLogLever(ZLog::E_NONE);
 			break;
 	        case 'x': // تمت إضافة هذا الخيار
-		bExcludeProvisioning = true;
+		        bExcludeProvisioning = true;
                         break;
-		        case 'v': {
+		case 'v': {
 			printf("version: %s\n", ZSIGN_VERSION);
 			return 0;
 			}
@@ -281,7 +284,7 @@ int main(int argc, char* argv[])
 	//sign
 	atimer.Reset();
 	ZBundle bundle;
-	bool bRet = bundle.SignFolder(&zsa, strFolder, strBundleId, strBundleVersion, strDisplayName, arrDylibFiles, bForce, bWeakInject, bEnableCache, bExcludeProvisioning);
+	bool bRet = bundle.SignFolder(&zsa, strFolder, strBundleId, strBundleVersion, strDisplayName, arrDylibFiles, bForce, bWeakInject, bEnableCache, bExcludeProvisioning, bInjectToFrameworks);
 	atimer.PrintResult(bRet, ">>> Signed %s!", bRet ? "OK" : "Failed");
 
 	//archive
