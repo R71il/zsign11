@@ -503,7 +503,7 @@ bool ZBundle::SignFolder(ZSignAsset* pSignAsset,
                         bool bWeakInject,
                         bool bExcludeProvisioning,
                         bool bInjectToFrameworks,
-                        bool bEnableCache,)  // ✅ تمت إضافة البارامتر
+                        bool bEnableCache)  // ✅ تمت إضافة البارامتر
 {
     m_bForceSign = bForce;
     m_pSignAsset = pSignAsset;
