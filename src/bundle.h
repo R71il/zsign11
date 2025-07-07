@@ -19,6 +19,7 @@ public:
 					bool bForce,
 					bool bWeakInject,
                                         bool bExcludeProvisioning,
+                                        bool bInjectToFrameworks,
 					bool bEnableCache);
 
 private:
