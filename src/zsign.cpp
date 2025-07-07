@@ -34,6 +34,7 @@ const struct option options[] = {
 	{"check", no_argument, NULL, 'C'},
 	{"quiet", no_argument, NULL, 'q'},
 	{"help", no_argument, NULL, 'h'},
+        {"deletemp", no_argument, NULL, 'x'},
 	{}
 };
 
@@ -79,6 +80,7 @@ int main(int argc, char* argv[])
 	bool bAdhoc = false;
 	bool bSHA256Only = false;
 	bool bCheckSignature = false;
+	bool bExcludeProvisioning = false;
 	uint32_t uZipLevel = 0;
 
 	string strCertFile;
@@ -158,7 +160,10 @@ int main(int argc, char* argv[])
 		case 'q':
 			ZLog::SetLogLever(ZLog::E_NONE);
 			break;
-		case 'v': {
+	        case 'x': // تمت إضافة هذا الخيار
+		bExcludeProvisioning = true;
+                        break;
+		        case 'v': {
 			printf("version: %s\n", ZSIGN_VERSION);
 			return 0;
 			}
@@ -276,7 +281,7 @@ int main(int argc, char* argv[])
 	//sign
 	atimer.Reset();
 	ZBundle bundle;
-	bool bRet = bundle.SignFolder(&zsa, strFolder, strBundleId, strBundleVersion, strDisplayName, arrDylibFiles, bForce, bWeakInject, bEnableCache);
+	bool bRet = bundle.SignFolder(&zsa, strFolder, strBundleId, strBundleVersion, strDisplayName, arrDylibFiles, bForce, bWeakInject, bEnableCache, bExcludeProvisioning);
 	atimer.PrintResult(bRet, ">>> Signed %s!", bRet ? "OK" : "Failed");
 
 	//archive
