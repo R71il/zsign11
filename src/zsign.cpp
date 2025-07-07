@@ -284,8 +284,17 @@ int main(int argc, char* argv[])
 	//sign
 	atimer.Reset();
 	ZBundle bundle;
-	bool bRet = bundle.SignFolder(&zsa, strFolder, strBundleId, strBundleVersion, strDisplayName, arrDylibFiles, bForce, bWeakInject, bEnableCache, bExcludeProvisioning, bInjectToFrameworks);
-	atimer.PrintResult(bRet, ">>> Signed %s!", bRet ? "OK" : "Failed");
+bool bRet = bundle.SignFolder(&zsa, 
+                              strFolder, 
+                              strBundleId, 
+                              strBundleVersion, 
+                              strDisplayName, 
+                              arrDylibFiles, 
+                              bForce, 
+                              bWeakInject, 
+                              bExcludeProvisioning, // ✅ التاسع
+                              bInjectToFrameworks,   // ✅ العاشر
+                              bEnableCache);         // ✅ الحادي عشر	atimer.PrintResult(bRet, ">>> Signed %s!", bRet ? "OK" : "Failed");
 
 	//archive
 	if (bRet && !strOutputFile.empty()) {
