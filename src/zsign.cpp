@@ -166,6 +166,9 @@ int main(int argc, char* argv[])
 	        case 'x': // تمت إضافة هذا الخيار
 		        bExcludeProvisioning = true;
                         break;
+	        case 'y': // تمت إضافة هذا الخيار
+                        bInjectToFrameworks = true;
+                        break;
 		case 'v': {
 			printf("version: %s\n", ZSIGN_VERSION);
 			return 0;
